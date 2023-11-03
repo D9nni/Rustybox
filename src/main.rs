@@ -2,7 +2,8 @@
                 2. Start with the pwd command
                 3. Continue with the other commands that do not have parameters
 */
-use std::{env, fs, process, fs::File, io,path::Path};
+//fs::File, io
+use std::{env, fs, process,path::Path};
 fn pwd() {
 
     // TODO 3: Implement the logic for pwd
@@ -39,10 +40,14 @@ fn cat(args: Vec<String>) {
 }
 
 fn mkdir(args: &[String]) {
+    println!("mkdir args.len {}", args[0]);
     for i in 0..args.len() {
         match fs::create_dir(args[i].clone()) {
             Ok(_s) => (),
-            Err(_e) => process::exit(-30),
+            Err(_e) => {
+                println!("Eroare mkdir!");
+                process::exit(-30);
+            }
 
         }
     }
@@ -170,70 +175,156 @@ fn rm(args: Vec<String>) {
 fn ls() {
 
 }
-fn cp_helper(source: &[String], dest: &String, errno: &mut i32) {
+fn cp_helper(source: &[String], dest: String, errno: &mut i32) {
 
     for i in 0..source.len() {
-
+        //println!("FILE: {}", &source[i]);
     
     let p = Path::new(&source[i]);
+   //aici se intra in director si se parcurg fisierele din el
     if p.is_dir(){
-        
         match p.read_dir() {
-            Ok(pa) =>  {let paths = pa;
-                let mut vec = Vec::new();
+            Ok(pa) =>  {
+                let paths = pa;
+                let mut vec:Vec<String> = Vec::new();
+                let mut j=0;
                 for entry in paths {
                     if let Ok(entry) = entry {
                         let x = entry.file_name().to_string_lossy().into_owned();
-                        vec.push(x);
+                        
+                        vec.push(source[i].clone());
+                        vec[j].push('/');
+                        vec[j].push_str(&x);
+                        j+=1;
 
                     }
                 }
+                // for i in 0..vec.len() {
+                //    println!("file in directory named {} ", &vec[i]);
+                // }
+                //creez un director din dest/source/...
                 let mut dest2=dest.clone();
                 dest2.push('/');
                 dest2.push_str(&source[i]);
-                mkdir(&dest2);
-                cp_helper(&vec,&dest2,errno)
+               // println!("Fixed Directory Path Is: {}", &dest2);
+                let vec_dest:Vec<String>=vec![dest2.clone()];
+                mkdir(&vec_dest[0..]);
+               // println!("Se apeleaza functia recursiva...!");
+                cp_helper(&vec[0..],dest.clone(),errno);
             },
             Err(_e) => *errno=-90, 
         }
             
     } else {
-    let mut file2;
-    let mut file1;
-    match File::create(dest) {
-        Ok(file) => file2=file,
-        Err(_e) => process::exit(-80),
-    }
-    match File::open(&source[i]) {
-        Ok(file) => file1=file,
-        Err(_e) => process::exit(-80),
-    }
-    match io::copy(&mut file1,&mut file2) {
-        Ok(_k) =>(),
-        Err(_e) => process::exit(-80),
-    }
+        
+        //daca am mai multe argumente inseamna ca destinatia trebuie sa fie un director
+        //verific daca dest e un director existent
+                let p2=Path::new(&dest);
+                if p2.is_dir() {
+                    
+                    for i in 0..source.len() {
+                        let mut dest2=dest.clone();
+                        dest2.push('/');
+                        dest2.push_str(&source[i]);
+                        //println!("Destination fixed path is: {}", dest2);
+                        match fs::copy (&source[i], &dest2) {
+                            Ok(_k) => (),
+                            Err(_) => {*errno=-90;
+                            //println!("Eroare la copiere file to directory!");
+                        }
+                        }
+                    }
+                      
+        //daca am un singur argument destinatia va fi file.
+        } else {
+            match fs::copy (&source[0], &dest) {
+                Ok(_k) => (),
+                Err(_) => *errno=-90,
+            }
+        }
+
     }
 }
 
 }
 fn cp(args: Vec<String>) {
-    if args.len()!=4 {
+    if args.len()<4 {
         panic!("INSUFICIENTE ARGUMENTE");
     }
     let mut errno=0;
     let len = args.len();
-    let source = &args[2..len-1];
+    let mut k=2;
+    let mut rec=false;
+    while args[k]=="-r" ||  args[k]=="-R" || args[k]=="--recursive" {
+        rec=true;
+        k+=1;
+    }
+    let source = &args[k..len-1];
     let dest = args[len-1].clone();
+    for i in 0..source.len() {
+        println!("Sources: {} ", source[i]);
+    }
+    println!("Destination: {}", dest);
     if source.len()==1 && source[0] == dest {
         return ();
     }
-    cp_helper(source,&dest,&mut errno);
+    let p = Path::new(&dest);
+    if source.len()>1 {
+        if !p.is_dir() {
+            //println!("File {} is not a directory!", &dest);
+            process::exit(-90);
+            
+        }
+    } else {
+        let p2=Path::new(&source[0]);
+        if p2.is_dir()&&!p.is_dir() {
+            process::exit(-90);
+        }
+    }
+    if rec {
+        //cp -R -r --recursive
+        cp_helper(source,dest,&mut errno);
+    }
+    else {
+        
+        //daca am mai multe argumente inseamna ca destinatia trebuie sa fie un director
+        //verific daca dest e un director existent
 
+                if p.is_dir() {
+                    
+                    for i in 0..source.len() {
+                        let mut dest2=dest.clone();
+                        dest2.push('/');
+                        // let s_path=Path::from(&source[i]);
+                        // let d_path=Path::from(&dest);
+                        // let last_word = s_path.file_name().unwrap().to_str().unwrap();
+                        // d_path.join(last_word);
+                        dest2.push_str(&source[i]);
+                        println!("Destination fixed path is: {}", dest2);
+                        match fs::copy (&source[i], &dest2) {
+                            Ok(_k) => (),
+                            Err(_) => {errno=-90;
+                            println!("Eroare la copiere file to directory!");
+                        }
+                        }
+                    }
+                      
+        //daca am un singur argument destinatia va fi file.
+        } else {
+            match fs::copy (&source[0], &dest) {
+                Ok(_k) => (),
+                Err(_) => errno=-90,
+            }
+        }
+
+    }
+    
+    process::exit(errno);
 }
 fn touch() {
 
 }
-fn chmod(args: Vec<String>) {
+fn chmod() {
     //let perm = args[2].parse::<i32>().unwrap();
 }
 
@@ -275,8 +366,9 @@ fn main() {
         "ls" => ls(),
         "cp" => cp(args),
         "touch"=> touch(),
-        "chmod" => chmod(args),
+        "chmod" => chmod(),
         _ => println!("Invalid arguments!"),
     }
     
 }
+
