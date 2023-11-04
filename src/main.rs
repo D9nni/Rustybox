@@ -177,11 +177,12 @@ fn ls_elementar(dir_path:&String,all:bool) ->Vec<String>{
                             if x.starts_with('.') && all==false {
                                 
                             }
-                            else {vect.push(x);
+                            else {
+                                vect.push(x);
                             }
                         }
                     }
-                    //vect.sort();
+                    vect.sort();
                     for elem in &vect {
                         println!("{}",elem);
                     }
@@ -211,7 +212,7 @@ fn ls_rec(dir_path:&String,all:bool) {
         
         let p2=Path::new(&elem);
         let p_dir=p.join(&p2);
-        let dir_p=String::from(p_dir.to_str().unwrap());
+        let dir_p=String::from(p_dir.to_string_lossy());
         if p_dir.is_dir() {
             ls_rec(&dir_p, all);
         }
@@ -226,16 +227,18 @@ fn ls(args: &[String]) {
     let mut rec = false;
     let length = args.len();
     let current_dir;
-
-    while k<args.len() && args[k].contains("-"){
+    let params:Vec<&str>=vec!["-a","--all","-R","--recursive"];
+    while k<args.len() && params.contains(&args[k].as_str()){
         
         match args[k].as_str() {
             "-a" | "--all" => all=true,
             "-R" | "--recursive" => rec=true,
-            _ => println!(" debug args[k]={}",args[k]),
+            _ => (),
         }
         k+=1;
     }
+
+
     if k==length {
         current_dir = String::from(".");
     }
