@@ -4,6 +4,7 @@
 */
 //fs::File, io
 use std::{env, fs, path::Path, process};
+
 fn pwd() {
     // TODO 3: Implement the logic for pwd
     let path_result = env::current_dir();
@@ -38,7 +39,7 @@ fn cat(args: Vec<String>) {
 }
 
 fn mkdir(args: &[String]) -> i32 {
-    println!("mkdir name {}", args[0]);
+    //println!("mkdir name {}", args[0]);
     for i in 0..args.len() {
         match fs::create_dir(args[i].clone()) {
             Ok(_s) => (),
@@ -158,11 +159,98 @@ fn rm(args: Vec<String>) {
     }
     process::exit(exit_code);
 }
-fn ls() {}
+fn ls_elementar(dir_path:&String,all:bool) ->Vec<String>{
+    
+        let p = Path::new(dir_path);
+        if p.is_dir() {
+            match p.read_dir() {
+                Ok(pa) => {
+                    let paths = pa;
+                    let mut vect: Vec<String> = Vec::new();
+                    if all {
+                        vect.push(String::from("."));
+                        vect.push(String::from(".."));
+                    }
+                    for iter in paths {
+                        if let Ok(iter) = iter {
+                            let x = iter.file_name().to_string_lossy().into_owned();
+                            if x.starts_with('.') && all==false {
+                                
+                            }
+                            else {vect.push(x);
+                            }
+                        }
+                    }
+                    //vect.sort();
+                    for elem in &vect {
+                        println!("{}",elem);
+                    }
+                   vect
+                }
+                Err(_) => process::exit(-80),
+    }
+    } else if p.is_file() {
+        println!("{}",dir_path);
+        process::exit(0);
+    }
+    else { //if file doesn't exist
+        process::exit(-80);
+    }
+    
+}
+fn ls_rec(dir_path:&String,all:bool) {
+    let p = Path::new(dir_path);
+    if p.is_dir(){
+        println!("{}:",dir_path);
+    }
+    let mut vect = ls_elementar(&dir_path,all);
+   // println!();
+    for elem in &mut vect {
+        if elem!="." && elem!=".." {
 
+        
+        let p2=Path::new(&elem);
+        let p_dir=p.join(&p2);
+        let dir_p=String::from(p_dir.to_str().unwrap());
+        if p_dir.is_dir() {
+            ls_rec(&dir_p, all);
+        }
+    }
+    }
+
+}
+fn ls(args: &[String]) {
+    //ls primeste cel mult un director ca argument
+    let mut k=0;
+    let mut all=false;
+    let mut rec = false;
+    let length = args.len();
+    let current_dir;
+
+    while k<args.len() && args[k].contains("-"){
+        
+        match args[k].as_str() {
+            "-a" | "--all" => all=true,
+            "-R" | "--recursive" => rec=true,
+            _ => println!(" debug args[k]={}",args[k]),
+        }
+        k+=1;
+    }
+    if k==length {
+        current_dir = String::from(".");
+    }
+    else {
+        current_dir = args[k].clone();
+    }
+    if rec {
+        ls_rec(&current_dir,all);
+    } else {
+        ls_elementar(&current_dir,all);
+    }
+}
 fn cp_helper(source: &[String], dest: String, errno: &mut i32) {
     for i in 0..source.len() {
-        println!("FILE: {}", &source[i]);
+        //println!("FILE: {}", &source[i]);
 
         let p = Path::new(&source[i]);
         //aici se intra in director si se parcurg fisierele din el
@@ -175,28 +263,12 @@ fn cp_helper(source: &[String], dest: String, errno: &mut i32) {
                     for entry in paths {
                         if let Ok(entry) = entry {
                             let x = entry.file_name().to_string_lossy().into_owned();
-
-                            // if*errno!=777 { //rename directory flag
-                            //     vec.push(source[i].clone());
-
-                            // }
-                            // else {
-                            //     vec.push(String::from("."));
-                            // }
                             vec.push(source[i].clone());
                             vec[j].push('/');
                             vec[j].push_str(&x);
                             j += 1;
                         }
                     }
-
-                    // for i in 0..vec.len() {
-                    //    println!("file in directory named {} ", &vec[i]);
-                    // }
-                    //creez un director din dest/source/...
-                    // let mut dest2=dest.clone();
-                    // dest2.push('/');
-                    // dest2.push_str(&source[i]);
                     let s_path = Path::new(&source[i]);
                     let d_path = Path::new(&dest);
                     let last_word = s_path.file_name().unwrap().to_str().unwrap();
@@ -247,7 +319,6 @@ fn cp_helper(source: &[String], dest: String, errno: &mut i32) {
                         // println!("Eroare la copiere file {} to directory {}!", source[i],dest2);
                     }
                 }
-
             //daca am un singur argument destinatia va fi file.
             } else {
                 match fs::copy(&source[0], &dest) {
@@ -275,10 +346,10 @@ fn cp(args: Vec<String>) {
     }
     let source = &args[k..len - 1];
     let dest = args[len - 1].clone();
-    for i in 0..source.len() {
-        println!("Sources: {} ", source[i]);
-    }
-    println!("Destination: {}", dest);
+    // for i in 0..source.len() {
+    //     println!("Sources: {} ", source[i]);
+    // }
+    // println!("Destination: {}", dest);
     if source.len() == 1 && source[0] == dest {
         return ();
     }
@@ -335,7 +406,14 @@ fn cp(args: Vec<String>) {
     //println!("Final errno is: {}", errno);
     process::exit(errno);
 }
-fn touch() {}
+fn touch() {
+    // fn touch(path: &Path) -> io::Result<()> {
+    //     match OpenOptions::new().create(true).write(true).open(path) {
+    //         Ok(_) => Ok(()),
+    //         Err(e) => Err(e),
+    //     }
+    // } https://doc.rust-lang.org/stable/rust-by-example/std_misc/fs.html
+}
 fn chmod() {
     //let perm = args[2].parse::<i32>().unwrap();
 }
@@ -343,24 +421,6 @@ fn chmod() {
 fn main() {
     // TODO 1: Read the command line arguments
     let args: Vec<String> = env::args().collect();
-    // for i in 1..args.len() {
-    //     println!("args[{}]={}",i,args[i]);
-    // }
-    // TODO 2: If the first argument is pwd, call pwd()
-    // enum commands {
-    //     Pwd,
-    //     Echo,
-    //     Cat,
-    //     mkdir,
-    //     mv,
-    //     ln,
-    //     rmdir,
-    //     rm,
-    //     ls,
-    //     cp,
-    //     touch,
-    //     chmod,
-    // };
     if args.len() == 1 {
         println!("Please enter a command!");
         return ();
@@ -374,10 +434,11 @@ fn main() {
         "ln" => ln(args),
         "rmdir" => rmdir(args),
         "rm" => rm(args),
-        "ls" => ls(),
+        "ls" => ls(&args[2..]),
         "cp" => cp(args),
         "touch" => touch(),
         "chmod" => chmod(),
-        _ => println!("Invalid arguments!"),
+        _ => {println!("Invalid command");
+        process::exit(-1);}
     }
 }
