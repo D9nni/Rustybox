@@ -1,9 +1,11 @@
+use std::os::unix::prelude::PermissionsExt;
 /* Suggestions: 1. Write a function for every command
                 2. Start with the pwd command
                 3. Continue with the other commands that do not have parameters
 */
 //fs::File, io
-use std::{env, fs, path::Path, process};
+use std::{env, fs, path::Path, process,fs::Permissions};
+
 
 fn pwd() {
     // TODO 3: Implement the logic for pwd
@@ -337,7 +339,7 @@ fn cp_helper(source: &[String], dest: String, errno: &mut i32) {
 }
 fn cp(args: Vec<String>) {
     if args.len() < 4 {
-        panic!("INSUFICIENTE ARGUMENTE");
+        panic!("Invalid command");
     }
     let mut errno = 0;
     let len = args.len();
@@ -409,18 +411,133 @@ fn cp(args: Vec<String>) {
     //println!("Final errno is: {}", errno);
     process::exit(errno);
 }
-fn touch() {
+fn touch(args:&[String]) {
+
     // fn touch(path: &Path) -> io::Result<()> {
-    //     match OpenOptions::new().create(true).write(true).open(path) {
-    //         Ok(_) => Ok(()),
-    //         Err(e) => Err(e),
-    //     }
-    // } https://doc.rust-lang.org/stable/rust-by-example/std_misc/fs.html
+        if args.len()==0 {
+            panic!("Invalid command");
+        }
+        let params:Vec<&str>=vec!["-a","-c", "--no-create","-m"];
+        let mut k=0;
+        let mut a=false;
+        let mut c = false;
+        let mut m = false;
+        while k<args.len() && params.contains(&args[k].as_str()){
+            match args[k].as_str() {
+                "-a" => a = true,
+                "-c" | "--no-create" => c = true,
+                "-m" => m = true,
+                _ => (),
+            }
+            k+=1;
+        }
+        if k==args.len() {
+            panic!("Invalid command");
+        }
+        let path = Path::new(&args[k]);
+        if !path.is_file() {
+            process::exit(-100);
+        }
+        
+        
+        // let metadata = path.metadata().unwrap();
+        // // metadata.accessed().
+        // // metadata.created()
+        // // metadata.modified()
+        match fs::OpenOptions::new().create(!c).write(!m).open(path) {
+            Ok(_) => (),
+            Err(_e) => {
+                println!("Eroare!");
+                process::exit(-100);
+            }
+        };
+    // https://doc.rust-lang.org/stable/rust-by-example/std_misc/fs.html
 }
-fn chmod() {
-    //let perm = args[2].parse::<i32>().unwrap();
+fn chmod(args:&[String]) {
+    //Formatul generic este: u/g/o/a +/- r/w/x. 
+    if args.len()!=2 {
+        println!("Invalid command");
+        process::exit(-1);
+    }
+
+    
+    let perm_nr=args[0].parse::<u32>();
+    if let Ok(perm_nr) = perm_nr {
+        if(perm_nr>777) {
+            process::exit(-25);
+        }
+        println!("{}",perm_nr);
+        let path = Path::new(&args[1]);
+        let perms = fs::Permissions::from_mode(perm_nr);
+        fs::set_permissions(path, perms).unwrap();
+        process::exit(0);
+    }
+    //pt formatul ugo+-rwx
+    else {
+        let pstr:Vec<char>=args[0].chars().collect();
+        let mut k = 0;
+        let mut persons=vec![0,0,0];
+        //parseaza argumentele pana la +
+        while k<pstr.len() && pstr[k]!='+' && pstr[k]!='-' {
+            match pstr[k] {
+                'a'=> {persons[0]=1;
+                persons[1]=1;
+                persons[2]=1;}
+                'u' => persons[0]=1,
+                'g' => persons[1]=1,
+                'o' => persons[2]=1,
+                _ =>   invalid(-25),
+            }
+            k+=1;
+        }
+        if k==pstr.len() {
+            invalid(-25);
+        }
+        let mut add=false;
+        if pstr[k]=='+' {
+            add=true;
+        } else if pstr[k]!='-' {
+            invalid(-25);
+        }
+        k+=1;
+        let mut mode = vec![0,0,0];
+        while k<pstr.len() {
+            match pstr[k] {
+                'r' => mode[0]=1,
+                'w' => mode[1]=1,
+                'x' => mode[2]=1,
+                _ => invalid(25),
+            }
+            k+=1;
+        }  
+       
+        let mode_digit=mode[0]*4+mode[1]*2+mode[2]*1;
+        let mode_nr=mode_digit*(100*persons[0]+10*persons[1]+persons[2]);
+        println!("mode_nr {}",mode_nr);
+        let path = Path::new(&args[1]);
+        let metadata=fs::metadata(path).unwrap();
+        let c_perms=metadata.permissions();
+        let c_mode = c_perms.mode();
+        println!("c_mode {}", c_mode);
+        let new_mode;
+        if add {
+        new_mode = c_mode | mode_nr; // +
+        }else {
+        new_mode = (!mode_nr) & c_mode; // -
+    }
+        println!("{}", new_mode);
+        let new_perms = Permissions::from_mode(new_mode);
+        fs::set_permissions(path, new_perms);
+    }
+   
+
+
 }
 
+fn invalid(code:i32) {
+    println!("Invalid command");
+    process::exit(code);
+}
 fn main() {
     // TODO 1: Read the command line arguments
     let args: Vec<String> = env::args().collect();
@@ -439,8 +556,8 @@ fn main() {
         "rm" => rm(args),
         "ls" => ls(&args[2..]),
         "cp" => cp(args),
-        "touch" => touch(),
-        "chmod" => chmod(),
+        "touch" => touch(&args[2..]),
+        "chmod" => chmod(&args[2..]),
         _ => {println!("Invalid command");
         process::exit(-1);}
     }
