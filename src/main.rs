@@ -6,6 +6,7 @@ use std::os::unix::prelude::{FileExt, PermissionsExt};
 //fs::File, io
 use std::{env, fs, fs::Permissions, io::Read, path::Path, process::exit};
 
+
 fn pwd() {
     // TODO 3: Implement the logic for pwd
     let path_result = env::current_dir();
@@ -529,7 +530,6 @@ fn chmod(args: &[String]) {
         fs::set_permissions(path, new_perms).unwrap(); //unsafe
     }
 }
-
 fn invalid() {
     println!("Invalid command");
     exit(-1);

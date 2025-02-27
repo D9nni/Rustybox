@@ -1,5 +1,8 @@
 # Rustybox
 
+Rustybox ofera o implementare in Rust a catorva comenzi elementare din Linux, folosind apeluri de functii de sistem.
+
+
 Describe your solution for the homework.
 
 Solutia temei nu e unitara si nu respecta acelasi pattern peste tot, codul nu arata foarte bine, dar se poate
